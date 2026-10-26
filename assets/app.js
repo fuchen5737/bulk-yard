@@ -56,6 +56,10 @@ function currentShape() {
   return form?.querySelector('input[name="shape"]:checked')?.value || "rectangle";
 }
 
+function track(name, params) {
+  if (typeof window.trackEvent === "function") window.trackEvent(name, params);
+}
+
 function syncShape() {
   const circle = currentShape() === "circle";
   if (lengthField) lengthField.hidden = circle;
@@ -127,7 +131,7 @@ function readForm() {
   };
 }
 
-function runCalculation({ scroll = true } = {}) {
+function runCalculation({ scroll = true, trigger = "form" } = {}) {
   clearError();
   const result = calculate(readForm());
   if (result.error) {
@@ -135,6 +139,16 @@ function runCalculation({ scroll = true } = {}) {
     return;
   }
   render(result);
+  track("yard_estimate_created", {
+    material: result.material,
+    shape: result.shape,
+    depth_in: result.depthIn,
+    cubic_yards: result.cubicYards,
+    bags: result.bags,
+    pallets: result.pallets,
+    cost: Math.round(result.cost),
+    trigger,
+  });
   if (scroll) {
     const rect = results.getBoundingClientRect();
     if (rect.top > window.innerHeight * 0.55) {
@@ -161,6 +175,7 @@ form?.addEventListener("submit", (event) => {
 materialSelect?.addEventListener("change", () => {
   syncMaterial();
   clearError();
+  track("yard_material_changed", { material: materialSelect.value });
 });
 
 for (const input of shapeInputs) input.addEventListener("change", syncShape);
@@ -200,6 +215,7 @@ copyButton?.addEventListener("click", async () => {
     area.remove();
   }
   showToast(ok ? "Material list copied." : "Couldn’t copy — select the list instead.");
+  if (ok) track("yard_list_copied", { material: state.result.material });
 });
 
 anotherButton?.addEventListener("click", () => {
@@ -218,7 +234,7 @@ fillExample?.addEventListener("click", () => {
   if (widthInput) widthInput.value = "8";
   syncShape();
   syncMaterial();
-  runCalculation();
+  runCalculation({ trigger: "example" });
 });
 
 const preset = document.body.dataset.presetMaterial;
